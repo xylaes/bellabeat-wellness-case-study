@@ -1,0 +1,15 @@
+{
+  "id": "dannyriggleman/bellabeat-wellness-case-study",
+  "title": "Bellabeat Wellness: Women's Smart Device Analytics",
+  "code_file": "bellabeat_case_study.ipynb",
+  "language": "r",
+  "kernel_type": "notebook",
+  "is_private": false,
+  "enable_gpu": false,
+  "enable_internet": true,
+  "dataset_sources": [
+    "arashnic/fitbit"
+  ],
+  "kernel_sources": [],
+  "competition_sources": []
+}

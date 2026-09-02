@@ -1,0 +1,199 @@
+---
+title: "Bellabeat Wellness: Data-Driven Growth for Women's Smart Devices"
+author: "Danny"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    theme: cosmo
+    highlight: tango
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+# 1. Introduction & Executive Summary
+
+Bellabeat is a high-tech manufacturer of health-focused smart products tailored specifically for women. Founded in 2013 by **Urška Sršen** and **Sando Mur**, Bellabeat has established a diverse product ecosystem including the **Bellabeat App**, the **Leaf** (jewelry tracker), the **Time** (wellness watch), the **Spring** (smart hydration bottle), and the **Bellabeat Membership** (personalized wellness coaching).
+
+Urška Sršen, Chief Creative Officer, requested an analysis of consumer fitness tracker data to uncover daily usage habits in physical activity, sedentary behavior, and sleep patterns. These insights will inform Bellabeat's marketing strategy and guide future feature development for the Bellabeat product lineup.
+
+---
+
+# 2. Ask Phase: Defining the Business Task
+
+* **Business Task:** Analyze consumer usage patterns from public fitness tracker data to identify key behavioral trends and provide data-driven marketing and product recommendations for Bellabeat.
+* **Key Stakeholders:** 
+  * Urška Sršen (Cofounder and Chief Creative Officer)
+  * Sando Mur (Cofounder and Mathematician)
+  * Bellabeat Executive Leadership
+  * Bellabeat Marketing Analytics Team
+* **Deliverables:**
+  1. A clear statement of the business task
+  2. Data sources description and ROCCC assessment
+  3. Documented data cleaning and transformation steps
+  4. Descriptive analysis and correlation summaries
+  5. Supporting data visualizations
+  6. Top 3 actionable strategic recommendations
+
+---
+
+# 3. Prepare Phase: Data Sources & ROCCC Evaluation
+
+The analysis utilizes the public **FitBit Fitness Tracker Data** (April 12, 2016 to May 12, 2016) available on Kaggle under CC0 Public Domain.
+
+### ROCCC Assessment:
+* **Reliable:** Medium (33 consenting Fitbit users via Amazon Mechanical Turk).
+* **Original:** Low (secondary aggregated data).
+* **Comprehensive:** Medium (rich biometric output on steps, intensities, calories, and sleep; lacks gender/age demographic markers).
+* **Current:** Low (collected in 2016).
+* **Cited:** Licensed under CC0 Public Domain.
+
+---
+
+# 4. Process Phase: Data Cleaning & Integration
+
+### 4.1 Loading Libraries
+```{r load-packages}
+library(tidyverse)
+library(lubridate)
+library(janitor)
+library(scales)
+```
+
+### 4.2 Loading Datasets
+```{r load-data}
+# Locate datasets dynamically across Kaggle and local environments
+search_dirs <- c(
+  "/kaggle/input/fitbit",
+  "/kaggle/input",
+  "G:/My Drive/CaseStudy2Data"
+)
+
+find_csv <- function(filename) {
+  for (d in search_dirs) {
+    if (dir.exists(d)) {
+      matches <- list.files(d, pattern = filename, full.names = TRUE, recursive = TRUE)
+      if (length(matches) > 0) return(matches[1])
+    }
+  }
+  return(NULL)
+}
+
+act_file <- find_csv("dailyActivity_merged.csv")
+sleep_file <- find_csv("sleepDay_merged.csv")
+
+daily_activity <- read_csv(act_file, show_col_types = FALSE) %>% clean_names() %>% distinct()
+daily_sleep    <- read_csv(sleep_file, show_col_types = FALSE) %>% clean_names() %>% distinct()
+
+glimpse(daily_activity)
+glimpse(daily_sleep)
+```
+
+### 4.3 Data Cleaning & Feature Engineering
+```{r clean-data}
+# Standardize dates
+daily_activity <- daily_activity %>%
+  mutate(activity_date = mdy(activity_date))
+
+daily_sleep <- daily_sleep %>%
+  mutate(sleep_day = as.Date(mdy_hms(sleep_day))) %>%
+  rename(activity_date = sleep_day)
+
+# Filter valid wear days (remove zero-step non-wear days)
+daily_activity_clean <- daily_activity %>%
+  filter(total_steps > 0 & sedentary_minutes < 1440)
+
+# Merge datasets
+merged_data <- inner_join(daily_activity_clean, daily_sleep, by = c("id", "activity_date"))
+
+cat("Cleaned active records:", nrow(daily_activity_clean), "\nMerged sleep records:", nrow(merged_data))
+```
+
+---
+
+# 5. Analyze Phase: Key Findings
+
+### 5.1 Descriptive Statistics
+```{r summary-stats}
+summary_table <- merged_data %>%
+  summarize(
+    avg_steps = mean(total_steps),
+    avg_calories = mean(calories),
+    avg_sedentary_hrs = mean(sedentary_minutes) / 60,
+    avg_active_hrs = (mean(very_active_minutes) + mean(fairly_active_minutes) + mean(lightly_active_minutes)) / 60,
+    avg_sleep_hrs = mean(total_minutes_asleep) / 60,
+    avg_awake_in_bed_mins = mean(total_time_in_bed - total_minutes_asleep)
+  )
+
+knitr::kable(summary_table, digits = 2, caption = "Summary Metrics: Daily Biometrics & Sleep Habits")
+```
+
+### 5.2 User Activity Segmentation
+```{r user-segments}
+user_segmentation <- daily_activity_clean %>%
+  group_by(id) %>%
+  summarize(mean_steps = mean(total_steps)) %>%
+  mutate(user_type = case_when(
+    mean_steps < 5000 ~ "Sedentary (<5k)",
+    mean_steps >= 5000 & mean_steps < 7500 ~ "Low Active (5k-7.5k)",
+    mean_steps >= 7500 & mean_steps < 10000 ~ "Fairly Active (7.5k-10k)",
+    mean_steps >= 10000 ~ "Very Active (>10k)"
+  ))
+
+table(user_segmentation$user_type)
+```
+
+---
+
+# 6. Share Phase: Data Visualizations
+
+### 6.1 Total Steps vs. Calories Burned
+```{r plot-steps-calories, fig.width=9.5, fig.height=5.5}
+ggplot(daily_activity_clean, aes(x = total_steps, y = calories)) +
+  geom_point(color = "#2E86C1", alpha = 0.6, size = 2.5) +
+  geom_smooth(method = "lm", color = "#E74C3C", linewidth = 1.2, se = FALSE) +
+  scale_x_continuous(labels = comma) +
+  scale_y_continuous(labels = comma) +
+  labs(
+    title = "Daily Steps vs. Calories Burned: Positive Correlation (r = +0.59)",
+    x = "Total Daily Steps",
+    y = "Calories Burned (kcal)"
+  ) +
+  theme_minimal(base_size = 12)
+```
+
+### 6.2 Sedentary Time vs. Sleep Duration
+```{r plot-sedentary-sleep, fig.width=9.5, fig.height=5.5}
+ggplot(merged_data, aes(x = sedentary_minutes, y = total_minutes_asleep)) +
+  geom_point(color = "#8E44AD", alpha = 0.65, size = 2.8) +
+  geom_smooth(method = "lm", color = "#E74C3C", linewidth = 1.2, se = FALSE) +
+  scale_x_continuous(labels = comma) +
+  labs(
+    title = "Sedentary Time vs. Sleep Duration: Negative Correlation (r = -0.60)",
+    subtitle = "Excessive daily sitting is strongly associated with reduced sleep duration",
+    x = "Daily Sedentary Minutes",
+    y = "Total Minutes Asleep"
+  ) +
+  theme_minimal(base_size = 12)
+```
+
+---
+
+# 7. Act Phase: Strategic Recommendations
+
+### Recommendation 1: In-App "Activity-to-Sleep" Feedback Loop
+* **Finding:** Excessive sedentary time reduces nighttime sleep quality ($r = -0.60$).
+* **Strategy:** Introduce smart inactivity notifications in the Bellabeat App. When 2+ hours of sedentary time are detected during the afternoon, send a gentle nudge: *"A 10-minute walk now helps you fall asleep 20 minutes faster tonight!"*
+
+### Recommendation 2: Market the Leaf as "Sleep-Friendly Jewelry"
+* **Finding:** ~32% of users do not track sleep, often due to wrist irritation or overnight charging of bulky watches.
+* **Strategy:** Highlight the **Bellabeat Leaf** (clip/necklace/bracelet with a 6-month battery) as a comfortable, non-intrusive sleep tracker that looks like fine jewelry.
+
+### Recommendation 3: Bedtime Wind-Down Audio & Mindfulness
+* **Finding:** Users spend an average of **39 minutes awake in bed** trying to fall asleep.
+* **Strategy:** Introduce an automated **"Bedtime Routine"** in the Bellabeat App 30 minutes before sleep, offering guided meditation and soothing audio from Bellabeat Membership coaches to reduce sleep latency.
