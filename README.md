@@ -3,7 +3,7 @@
 **Author:** Danny ([@xylaes](https://github.com/xylaes))  
 **Tools Used:** R (`tidyverse`, `lubridate`, `janitor`, `scales`, `ggplot2`), Python (`pandas`, `matplotlib`), Kaggle, GitHub  
 **Dataset:** FitBit Fitness Tracker Dataset (CC0 Public Domain via Mobius, 33 Active Users, 410 Merged Activity & Sleep Records)  
-**Live Interactive Notebook:** [Kaggle Notebook](https://www.kaggle.com/code/dannyriggleman/bellabeat-wellness-case-study)
+**Live Interactive Notebook:** [Kaggle Notebook](https://www.kaggle.com/code/dannyriggleman/bellabeat-wellness-women-s-smart-device-analytics)
 
 ---
 
